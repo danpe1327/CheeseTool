@@ -115,15 +115,18 @@ python add_watermark.py input_file
                         --color black
                         --alpha 0.2
 
-# 参数说明 input_file 输入文件路径，目前支持 word， excel， powerpoint 的新旧 6 种格式与 pdf 格式
+# 参数说明 input_file 输入单一文件或文件夹路径，目前支持 word， excel， powerpoint 的新旧 6 种格式与 pdf 格式
            --watermark 水印文本，通过符号 ‘|’ 换行
            --angle 水印文本方向
            --font_file 可自定义字体文件，若无输入或字体文件不存在，则使用默认的字体
            --font_size 字体大小
-           --color 水印颜色，可选常见的颜色，如 [black, red, blue, green, yellow, white, gold, purple, pink,         orange] 等
+           --color 水印颜色，可选常见的颜色，如 [black, red, blue, green, yellow, white, gold, purple, pink, orange] 等
            --alpha 字体透明度
            --only_pdf 只转换文本为 pdf，不添加水印
            --no_date 水印不加入日期
+# 输出
+    若输入为单一文件，会新建一个 with-watermark 目录，将添加水印的文件放置到该目录下；
+    若输入为文件夹，则会遍历目录，将所有符合格式的文件添加水印，并新建一个 文件夹名+-with-watermark 的目录，存放结果。
 ```
 
 ### 7.常见错误

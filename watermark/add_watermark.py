@@ -27,6 +27,7 @@ class PdfConvert(object):
         else:
             return None
 
+        # return a list of pdf files
         if isinstance(out_file, str):
             pdf_lst = [out_file]
         else:
@@ -59,12 +60,12 @@ class PdfConvert(object):
             office_file = office_app.Workbooks.Open(in_file, ReadOnly=1)
             sheet_num = office_file.Sheets.Count
 
-            # 循环保存每一个sheet
+            # save every sheet that is not empty
             for i in range(1, sheet_num + 1):
                 sheet_name = office_file.Sheets(i).Name
                 xls_sheet = office_file.Worksheets(sheet_name)
 
-                if str(xls_sheet.UsedRange) == 'None':  # 过滤没有内容的sheet
+                if str(xls_sheet.UsedRange) == 'None':  # filter the empty sheet
                     continue
 
                 pdf_file = pdf_file.replace('.pdf', '_%s.pdf' % sheet_name)
@@ -103,7 +104,7 @@ class PdfConvert(object):
 
 def create_watermark(content, angle, direction='v', font_file=None, font_size=36, color='black', alpha=0.2):
     """
-    创建 PDF 水印模板
+    create PDF watermark file
     """
 
     wm_file = 'watermark_%s.pdf' % direction
@@ -112,11 +113,11 @@ def create_watermark(content, angle, direction='v', font_file=None, font_size=36
         font_name = available_fonts[0]
     else:
         font_name = os.path.splitext(os.path.basename(font_file))[0]
-        pdfmetrics.registerFont(TTFont(font_name, font_file))  # 加载字体
+        pdfmetrics.registerFont(TTFont(font_name, font_file))  # register custom font
 
-    c = canvas.Canvas(wm_file)  # 使用reportlab来创建一个PDF文件来作为一个水印文件
+    c = canvas.Canvas(wm_file)  # create an empty pdf file
 
-    # 配置水印文件
+    # setting pdf parameters
     c.setFont(font_name, font_size)
     c.saveState()
     c.rotate(angle)
@@ -157,30 +158,20 @@ def add_watermark(pdf_file, save_dir, wm_file_v, wm_file_h):
     wm_page_h = wm_obj_h.getPage(0)
 
     for page_num in range(pdf_reader.getNumPages()):
-        page = pdf_reader.getPage(page_num)
         current_page = pdf_reader.getPage(page_num)
         width = current_page.mediaBox.getWidth()
         height = current_page.mediaBox.getHeight()
+
+        # merge the watermark file which is suitable
         wm_page = wm_page_v if height >= width else wm_page_h
-        page.mergePage(wm_page)
-        pdf_writer.addPage(page)
+        current_page.mergePage(wm_page)
+        pdf_writer.addPage(current_page)
 
     with open(out_file, 'wb') as out:
         pdf_writer.write(out)
 
 
 def listFiles(dir, out_list, types, recursion=False):
-    """
-    dir --string
-        文件目录
-    out_list --list
-        文件列表
-    types --list[str]
-        查找的文件类型
-    recursion --bool
-        是否递归
-    """
-
     files = os.listdir(dir)
     for name in files:
         fullname = os.path.join(dir, name)
@@ -261,7 +252,7 @@ if __name__ == '__main__':
         if not args.only_pdf and pdf_lst is not None:
             try:
                 for pdf_item in pdf_lst:
-                    add_watermark(pdf_item, save_dir, wm_file_v, wm_file_h)  # 添加水印，并覆盖 pdf 文件
+                    add_watermark(pdf_item, save_dir, wm_file_v, wm_file_h)  # add watermark, overwrite the pdf file
 
             except Exception as e:
                 print('failed to add watermark %s' % src_file, e)
