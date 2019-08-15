@@ -9,27 +9,12 @@ pip install pypiwin32
 pip install reportlab
 
 # PyPDF4，用于合成 pdf 文件
-pip install pypdf4
+git clone https://github.com/danpe1327/PyPDF4.git pypdf4
+cd pypdf4
+python setup.py install --record files.txt
 ```
 
-### 2.修改pypdf4 的 utils.py，以支持中英文合成
-代码路径: \PyPDF4\utils.py
-
-将其中的 r = s.encode('latin-1') ，改为如下
-```
-    try:
-        r = s.encode('latin-1')            
-        if len(s) < 2:
-            bc[s] = r
-        return r
-    except Exception as e:
-        r = s.encode('utf-8')
-        if len(s) < 2:
-            bc[s] = r
-        return r
-```
-
-### 3.使用说明
+### 2.使用说明
 命令
 ```
 python add_watermark.py input_file 
@@ -54,11 +39,27 @@ python add_watermark.py input_file
     若输入为文件夹，则会遍历目录，将所有符合格式的文件添加水印，并新建一个 文件夹名+-with-watermark 的目录，存放结果。
 ```
 
-### 4.常见错误
+### 3.常见错误
 - 转换 ppt 文件时，出现错误 “The Python instance can not be converted to a COM object”
   
   在保存成 pdf 文件时，需要输入参数 PrintRange
   ```
   office_file.ExportAsFixedFormat(pdf_file, 32, PrintRange=None)
   ```
-  
+- 为中文文档添加水印报错 “'latin-1' codec can't encode characters in position 8-12: ordinal not in range(256)”
+  修改pypdf4 的 utils.py，以支持中英文合成。
+    代码路径: \PyPDF4\utils.py
+
+    将其中的 r = s.encode('latin-1') ，改为如下
+    ```
+        try:
+            r = s.encode('latin-1')            
+            if len(s) < 2:
+                bc[s] = r
+            return r
+        except Exception as e:
+            r = s.encode('utf-8')
+            if len(s) < 2:
+                bc[s] = r
+            return r
+    ```

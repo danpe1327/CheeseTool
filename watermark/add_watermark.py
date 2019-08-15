@@ -8,7 +8,7 @@ from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib import colors
-from PyPDF4 import PdfFileReader, PdfFileWriter
+from pypdf import PdfFileReader, PdfFileWriter
 
 
 class PdfConvert(object):
@@ -150,14 +150,14 @@ def add_watermark(pdf_file, save_dir, wm_file_v, wm_file_h):
     out_file = os.path.join(save_dir, os.path.basename(pdf_file))
 
     pdf_reader = PdfFileReader(pdf_file)
-    pdf_writer = PdfFileWriter()
+    pdf_writer = PdfFileWriter(out_file)
 
     wm_obj_v = PdfFileReader(wm_file_v)
     wm_page_v = wm_obj_v.getPage(0)
     wm_obj_h = PdfFileReader(wm_file_h)
     wm_page_h = wm_obj_h.getPage(0)
 
-    for page_num in range(pdf_reader.getNumPages()):
+    for page_num in range(pdf_reader.numPages):
         current_page = pdf_reader.getPage(page_num)
         width = current_page.mediaBox.getWidth()
         height = current_page.mediaBox.getHeight()
@@ -167,8 +167,7 @@ def add_watermark(pdf_file, save_dir, wm_file_v, wm_file_h):
         current_page.mergePage(wm_page)
         pdf_writer.addPage(current_page)
 
-    with open(out_file, 'wb') as out:
-        pdf_writer.write(out)
+    pdf_writer.write()
 
 
 def listFiles(dir, out_list, types, recursion=False):
@@ -215,15 +214,18 @@ if __name__ == '__main__':
     word_file_lst = list()
     if os.path.isdir(input_file):
         listFiles(input_file, word_file_lst, OFFICE_PDF_EXT, True)
-        out_dir = os.path.join(input_file, '..', '%s-with-watermark' % os.path.basename(input_file))
+        watermark_dir = os.path.join(input_file, '..', '%s-with-watermark' % os.path.basename(input_file))
+        pdf_dir = os.path.join(input_file, '..', '%s-pdf-files' % os.path.basename(input_file))
     else:
         word_file_lst = [input_file]
-        out_dir = os.path.join(os.getcwd(), 'with-watermark')
+        watermark_dir = os.path.join(os.getcwd(), 'with-watermark')
+        pdf_dir = os.path.join(os.getcwd(), 'pdf-files')
 
-    wm_file_v = create_watermark(wm_content, args.angle, 'v', args.font_file, args.font_size, args.color,
-                                 args.alpha)  # for Portrait
-    wm_file_h = create_watermark(wm_content, args.angle, 'h', args.font_file, args.font_size, args.color,
-                                 args.alpha)  # for Landscape
+    if not args.only_pdf:
+        wm_file_v = create_watermark(wm_content, args.angle, 'v', args.font_file, args.font_size, args.color,
+                                     args.alpha)  # for Portrait
+        wm_file_h = create_watermark(wm_content, args.angle, 'h', args.font_file, args.font_size, args.color,
+                                     args.alpha)  # for Landscape
     pdf_convert = PdfConvert()
     for src_file in tqdm(word_file_lst):
         src_file = os.path.normpath(src_file)
@@ -231,34 +233,42 @@ if __name__ == '__main__':
             print('illegal file %s' % src_file)
             continue
 
-        save_dir = out_dir
+        watermark_save_dir = watermark_dir
+        pdf_save_dir = pdf_dir
         if os.path.isdir(input_file):
             sub_dir = os.path.dirname(src_file)
-            save_dir = os.path.join(out_dir, sub_dir.split(input_file)[1][1:])
+            watermark_save_dir = os.path.join(watermark_dir, sub_dir.split(input_file)[1][1:])
+            pdf_save_dir = os.path.join(pdf_dir, sub_dir.split(input_file)[1][1:])
 
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
+        if not os.path.exists(watermark_save_dir):
+            os.makedirs(watermark_save_dir)
 
+        if not os.path.exists(pdf_save_dir):
+            os.makedirs(pdf_save_dir)
         # print('add watermark for %s' % src_file)
 
         file_ext = os.path.splitext(os.path.basename(src_file))[1].lower()
         if file_ext == '.pdf':
-            pdf_file = os.path.join(save_dir, os.path.basename(src_file))
+            pdf_file = os.path.join(pdf_save_dir, os.path.basename(src_file))
             shutil.copy(src_file, pdf_file)
             pdf_lst = [pdf_file]
         else:
-            pdf_lst = pdf_convert.run_convert(src_file, save_dir)
+            pdf_lst = pdf_convert.run_convert(src_file, pdf_save_dir)
 
         if not args.only_pdf and pdf_lst is not None:
             try:
                 for pdf_item in pdf_lst:
-                    add_watermark(pdf_item, save_dir, wm_file_v, wm_file_h)  # add watermark, overwrite the pdf file
+                    add_watermark(pdf_item, watermark_save_dir, wm_file_v,
+                                  wm_file_h)  # add watermark, overwrite the pdf file
 
             except Exception as e:
                 print('failed to add watermark %s' % src_file, e)
-                for pdf_item in pdf_lst:
-                    os.remove(pdf_item)
                 continue
 
-    os.remove(wm_file_v)
-    os.remove(wm_file_h)
+    if not args.only_pdf:
+        shutil.rmtree(pdf_dir)
+
+    if os.path.exists(wm_file_v):
+        os.remove(wm_file_v)
+    if os.path.exists(wm_file_h):
+        os.remove(wm_file_h)
