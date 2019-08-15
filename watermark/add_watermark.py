@@ -268,7 +268,7 @@ if __name__ == '__main__':
     if not args.only_pdf:
         shutil.rmtree(pdf_dir)
 
-    if os.path.exists(wm_file_v):
-        os.remove(wm_file_v)
-    if os.path.exists(wm_file_h):
-        os.remove(wm_file_h)
+        if os.path.exists(wm_file_v):
+            os.remove(wm_file_v)
+        if os.path.exists(wm_file_h):
+            os.remove(wm_file_h)
