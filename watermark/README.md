@@ -2,19 +2,22 @@
 
 ### 1.依赖库
 ```
-# win32com，用于调用 word 等应用程序
-pip install pypiwin32
+pip install -r requirements.txt
+```
+### 2.部分python库说明
 
-# reportlab，用于生成 pdf 水印文件
-pip install reportlab
+- win32com，用于调用 word 等应用程序
+- reportlab，用于生成 pdf 水印文件
 
+### 3.安装pdf工具包
+```
 # PyPDF4，用于合成 pdf 文件
 git clone https://github.com/danpe1327/PyPDF4.git pypdf4
 cd pypdf4
 python setup.py install --record files.txt
 ```
 
-### 2.使用说明
+### 4.使用说明
 命令
 ```
 python add_watermark.py input_file 
@@ -39,7 +42,7 @@ python add_watermark.py input_file
     若输入为文件夹，则会遍历目录，将所有符合格式的文件添加水印，并新建一个 文件夹名+-with-watermark 的目录，存放结果。
 ```
 
-### 3.常见错误
+### 5.常见错误
 - 转换 ppt 文件时，出现错误 “The Python instance can not be converted to a COM object”
   
   在保存成 pdf 文件时，需要输入参数 PrintRange
