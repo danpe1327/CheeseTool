@@ -149,38 +149,29 @@ def create_watermark(content,
 
     # setting pdf parameters
     c.setFont(font_name, font_size)
-    c.saveState()
-    c.rotate(angle)
     c.setFillColor(eval('colors.%s' % color))
     c.setFillAlpha(alpha)
+    c.saveState()
 
-    content_lst = content.split('|')
-    y = 0
     w, h = pagesize
-    if angle == 45:
-        if direction == 'v':
-            for c_item in content_lst:
-                c.drawString(0.3 * w, 0.1 * h - y, c_item)
-                c.drawString(0.8 * w, 0.4 * h - y, c_item)
-                c.drawString(1.3 * w, 0.25 * h - y, c_item)
-                c.drawString(w, 0 - y, c_item)
-                y += font_size + 4
-        else:
-            for c_item in content_lst:
-                c.drawString(0.4 * w, 0.2 * h - y, c_item)
-                c.drawString(0.3 * w, -0.1 * h - y, c_item)
-                c.drawString(0.5 * w, -0.6 * h - y, c_item)
-                c.drawString(0.6 * w, -0.3 * h - y, c_item)
-                y += font_size + 4
-    else:  # angle=0
+    orgin_lst = [
+        (0.7, 0.7),
+        (0.3, 0.7),
+        (0.3, 0.3),
+        (0.7, 0.3),
+    ]
+    content_lst = content.split('|')
+    # 分别以 4 个象限的中心为原点，进行旋转
+    for i, orgin in enumerate(orgin_lst):
+        c.restoreState()
+        c.saveState()
+        c.translate(orgin[0] * w, orgin[1] * h)
+        c.rotate(angle)
+        y = 0
         for c_item in content_lst:
-            c.drawString(0.1 * w, 0.3 * h - y, c_item)
-            c.drawString(0.6 * w, 0.3 * h - y, c_item)
-            c.drawString(0.1 * w, 0.7 * h - y, c_item)
-            c.drawString(0.6 * w, 0.7 * h - y, c_item)
-            y += font_size + 4
+            c.drawCentredString(0, 0 - y, c_item)
+            y += font_size
 
-    c.restoreState()
     c.save()
 
     return wm_file
@@ -261,7 +252,7 @@ def parse_args():
 if __name__ == '__main__':
     OFFICE_PDF_EXT = ['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.pdf']
     args = parse_args()
-    input_file = os.path.abspath(args.input_file)    
+    input_file = os.path.abspath(args.input_file)
     output_dir = os.path.abspath(args.output_dir)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
