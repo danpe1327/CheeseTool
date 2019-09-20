@@ -234,7 +234,7 @@ def listFiles(dir, out_list, types, recursion=False):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input_file', type=str, help='input docx or pdf file or directory')
-    parser.add_argument('--output_dir', type=str, help='output directory', default='.\watermark_output')
+    parser.add_argument('--output_dir', type=str, help='output directory', default='./watermark_output')
     parser.add_argument('--watermark', type=str, help='Wrap through |', default='DANPE')
     parser.add_argument('--angle', type=int, help='', default=45)
     parser.add_argument('--font_file', type=str, help='', default='arial.ttf')
