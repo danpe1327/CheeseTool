@@ -10,6 +10,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib import colors
 from pypdf import PdfFileReader, PdfFileWriter
 import pythoncom
+import uuid
 
 
 class PdfConvert(object):
@@ -20,7 +21,7 @@ class PdfConvert(object):
         pdf_file = os.path.join(save_dir, os.path.basename(pdf_file))
 
         out_file = pdf_file
-        if not os.path.exists(pdf_file):
+        if not os.path.exists(pdf_file) or file_ext in ['.xls', '.xlsx']:
             if file_ext in ['.doc', '.docx']:
                 out_file = self.word2pdf(in_file, pdf_file)
             elif file_ext in ['.ppt', '.pptx']:
@@ -77,12 +78,12 @@ class PdfConvert(object):
                 if str(xls_sheet.UsedRange) == 'None':  # filter the empty sheet
                     continue
 
-                pdf_file = pdf_file.replace('.pdf', '_%s.pdf' % sheet_name)
+                tmp_file = pdf_file.replace('.pdf', '_%s.pdf' % sheet_name)
 
-                if os.path.exists(pdf_file):
-                    os.remove(pdf_file)
-                pdf_lst.append(pdf_file)
-                xls_sheet.ExportAsFixedFormat(0, pdf_file)
+                if os.path.exists(tmp_file):
+                    os.remove(tmp_file)
+                pdf_lst.append(tmp_file)
+                xls_sheet.ExportAsFixedFormat(0, tmp_file)
 
             office_file.Close()
         except Exception as e:
@@ -94,6 +95,7 @@ class PdfConvert(object):
         finally:
             if office_app is not None:
                 office_app.Quit()
+
             pythoncom.CoUninitialize()
             return pdf_lst
 
@@ -132,7 +134,6 @@ def create_watermark(content,
     """
     create PDF watermark file
     """
-    import uuid
     if not isinstance(pagesize, float):
         pagesize = (float(pagesize[0]), float(pagesize[1]))
 
@@ -161,7 +162,7 @@ def create_watermark(content,
         (0.7, 0.3),
     ]
     content_lst = content.split('|')
-    # 分别以 4 个象限的中心为原点，进行旋转
+    # create 4 watermarks in page
     for i, orgin in enumerate(orgin_lst):
         c.restoreState()
         c.saveState()
@@ -181,6 +182,8 @@ def merge_watermark(pdf_file, save_dir, wm_attrs):
     out_file = os.path.join(save_dir, os.path.basename(pdf_file))
 
     pdf_reader = PdfFileReader(pdf_file)
+    if pdf_reader.isEncrypted:
+        pdf_reader.decrypt('')
     pdf_writer = PdfFileWriter(out_file)
 
     first_page = pdf_reader.getPage(0)
@@ -268,6 +271,8 @@ if __name__ == '__main__':
         watermark_dir = os.path.join(output_dir, '%s-with-watermark' % os.path.basename(input_file))
         pdf_dir = os.path.join(output_dir, '%s-pdf-files' % os.path.basename(input_file))
     else:
+        input_file_ext = os.path.splitext(os.path.basename(input_file))[1].lower()
+        assert input_file_ext in OFFICE_PDF_EXT, 'Do not support %s file' % input_file_ext
         word_file_lst = [input_file]
         watermark_dir = os.path.join(output_dir, 'with-watermark')
         pdf_dir = os.path.join(output_dir, 'pdf-files')
