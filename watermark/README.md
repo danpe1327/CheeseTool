@@ -1,5 +1,7 @@
 ## python 批量给 word 或 pdf 文件添加水印
 
+项目地址：https://github.com/danpe1327/CheeseTool/tree/master/watermark
+
 ### 1.依赖库
 ```
 pip install -r requirements.txt
@@ -28,7 +30,8 @@ python add_watermark.py input_file
                         --color black
                         --alpha 0.2
 
-# 参数说明 input_file 输入单一文件或文件夹路径，目前支持 word， excel， powerpoint 的新旧 6 种格式与 pdf 格式
+# 参数说明 
+            input_file 输入单一文件或文件夹路径，目前支持 word， excel， powerpoint 的新旧 6 种格式与 pdf 格式
            --watermark 水印文本，通过符号 ‘|’ 换行
            --angle 水印文本方向
            --font_file 可自定义字体文件，若无输入或字体文件不存在，则使用默认的字体
@@ -66,3 +69,23 @@ python add_watermark.py input_file
                 bc[s] = r
             return r
     ```
+### 6.pdf 权限
+- -1 permit everything
+- -4096 deny anything
+- -4092 only print
+
+```
+0000 0000 0001 unknown
+0000 0000 0010 unknown
+0000 0000 0011 unknown
+0000 0000 0100 打印
+0000 0000 1000 更改文档、文档组合、填写表单域、签名、创建模板页面
+0000 0001 0000 内容复制、复制内容用于辅助工具
+0000 0010 0000 注释、填写表单域、签名
+0000 0100 0000 unknown
+0000 1000 0000 unknown
+0001 0000 0000 填写表单域、签名、创建模板页面
+0010 0000 0000 复制内容用于辅助工具
+0100 0000 0000 文档组合
+1000 0000 0000 unknown
+```
