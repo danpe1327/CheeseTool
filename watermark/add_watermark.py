@@ -2,14 +2,13 @@ import os
 import time
 import argparse
 import shutil
+from comtypes.client import CreateObject
 from tqdm import tqdm
-from win32com import client
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib import colors
 from pypdf import PdfFileReader, PdfFileWriter
-import pythoncom
 import uuid
 
 TRY_TIMES = 3
@@ -24,6 +23,22 @@ ORGIN_LIST = [
 
 
 class PdfConvert(object):
+
+    def __init__(self):
+        self.wordFormatPDF = 17
+        self.excelFormatPDF = 0
+        self.pptFormatPDF = 32
+        self.wordApp = None
+        self.excelApp = None
+        self.pptApp = None
+
+    def close(self):
+        if self.wordApp:
+            self.wordApp.Quit()
+        if self.excelApp:
+            self.excelApp.Quit()
+        if self.pptApp:
+            self.pptApp.Quit()
 
     def run_convert(self, in_file, save_dir):
         file_ext = os.path.splitext(os.path.basename(in_file))[1]
@@ -51,38 +66,37 @@ class PdfConvert(object):
         return pdf_list
 
     def word2pdf(self, in_file, pdf_file):
-        office_app = None
         try:
-            pythoncom.CoInitialize()
-            office_app = client.DispatchEx("Word.Application")
-            office_app.DisplayAlerts = False
             if os.path.exists(pdf_file):
                 os.remove(pdf_file)
+            if self.wordApp is None:
+                self.wordApp = CreateObject("Word.Application")
 
-            office_file = office_app.Documents.Open(in_file, Visible=False, ReadOnly=1)
-            office_file.ExportAsFixedFormat(pdf_file, 17)
+            office_file = self.wordApp.Documents.Open(in_file, Visible=False, ReadOnly=1)
+            office_file.ExportAsFixedFormat(pdf_file, self.wordFormatPDF)
             office_file.Close()
         except Exception as e:
             print('failed to convert word %s, %s' % (in_file, e))
             pdf_file = None
+            self.wordApp.Quit()
+            self.wordApp = None
         finally:
-            if office_app is not None:
-                office_app.DisplayAlerts = True
-                office_app.Quit()
-            pythoncom.CoUninitialize()
             return pdf_file
 
     def excel2pdf(self, in_file, pdf_file):
-        office_app = None
         out_list = []
         try:
-            pythoncom.CoInitialize()
-            office_app = client.DispatchEx("Excel.Application")
-            office_app.DisplayAlerts = False
-            # office_app.Application.DisplayAlerts = False
-
-            office_file = office_app.Workbooks.Open(in_file, ReadOnly=1)
+            if self.excelApp is None:
+                self.excelApp = CreateObject("Excel.Application")
+            self.excelApp.DisplayAlerts = False
+            office_file = self.excelApp.Workbooks.Open(in_file, ReadOnly=1)
             sheet_num = office_file.Sheets.Count
+            sheets_save_dir = os.path.splitext(pdf_file)[0]
+
+            if not os.path.exists(sheets_save_dir):
+                os.makedirs(sheets_save_dir)
+
+            pdf_file = os.path.join(sheets_save_dir, os.path.basename(pdf_file))
 
             # save every sheet that is not empty
             for i in range(1, sheet_num + 1):
@@ -96,8 +110,8 @@ class PdfConvert(object):
 
                 if os.path.exists(tmp_file):
                     os.remove(tmp_file)
+                xls_sheet.ExportAsFixedFormat(self.excelFormatPDF, tmp_file)
                 out_list.append(tmp_file)
-                xls_sheet.ExportAsFixedFormat(0, tmp_file)
 
             office_file.Close()
         except Exception as e:
@@ -106,39 +120,44 @@ class PdfConvert(object):
                 for f in out_list:
                     os.remove(f)
             out_list = None
+            self.excelApp.DisplayAlerts = True
+            self.excelApp.Quit()
+            self.excelApp = None
         finally:
-            if office_app is not None:
-                office_app.DisplayAlerts = True
-                office_app.Quit()
-
-            pythoncom.CoUninitialize()
+            if self.excelApp is not None:
+                self.excelApp.DisplayAlerts = True
             return out_list
 
     def ppt2pdf(self, in_file, pdf_file):
-        office_app = None
         try:
-            pythoncom.CoInitialize()
-            office_app = client.DispatchEx("Powerpoint.Application")
-            office_app.DisplayAlerts = False
             if os.path.exists(pdf_file):
                 os.remove(pdf_file)
-
-            office_file = office_app.Presentations.Open(in_file, WithWindow=False, ReadOnly=1)
-            office_file.ExportAsFixedFormat(pdf_file, 32, PrintRange=None)
+            if self.pptApp is None:
+                self.pptApp = CreateObject("Powerpoint.Application")
+            self.pptApp.DisplayAlerts = False
+            office_file = self.pptApp.Presentations.Open(in_file, WithWindow=False, ReadOnly=1)
+            office_file.ExportAsFixedFormat(pdf_file, self.pptFormatPDF, PrintRange=None)
             office_file.Close()
         except Exception as e:
             print('failed to convert ppt %s, %s' % (in_file, e))
             pdf_file = None
+            self.pptApp.DisplayAlerts = True
+            self.pptApp.Quit()
+            self.pptApp = None
         finally:
-            if office_app is not None:
-                office_app.DisplayAlerts = True
-                office_app.Quit()
-
-            pythoncom.CoUninitialize()
+            if self.pptApp is not None:
+                self.pptApp.DisplayAlerts = True
             return pdf_file
 
 
-def create_watermark(content, out_dir, angle, pagesize=None, font_file=None, font_size=None, color='black', alpha=0.2):
+def create_watermark(content='None',
+                     angle=0,
+                     pagesize=None,
+                     font_file=None,
+                     font_size=None,
+                     color='black',
+                     alpha=0.2,
+                     out_dir='.'):
     """
     create PDF watermark file
     """
@@ -213,16 +232,12 @@ def merge_watermark(pdf_file, save_dir, owner_pwd, p_value, wm_attrs):
 
     for page_num in range(pdf_reader.numPages):
         current_page = pdf_reader.getPage(page_num)
-        # width = current_page.mediaBox.getWidth()
-        # height = current_page.mediaBox.getHeight()
-        ## merge the watermark file which is suitable
-        # wm_page = wm_page_v if height >= width else wm_page_h
         current_page.mergePage(wm_page)
         pdf_writer.addPage(current_page)
 
     if owner_pwd.lower() not in ['-1', 'no', 'none', 'null']:
         pdf_writer.encrypt('', ownerPwd=owner_pwd, P=p_value)
-        with open(os.path.join(wm_attrs['out_dir'], '..', 'log'), 'a', encoding='utf-8') as f_log:
+        with open(os.path.join(wm_attrs['out_dir'], '..', 'permission_key'), 'a', encoding='utf-8') as f_log:
             f_log.write('%s %s %s\n' % (time.strftime('%Y-%m-%d %H:%M:%S'), os.path.relpath(out_file), owner_pwd))
 
     pdf_writer.write()
@@ -246,67 +261,48 @@ def listFiles(dir, out_list, types, recursion=False):
     return out_list
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('input_file', type=str, help='input docx or pdf file or directory')
-    parser.add_argument('--output_dir', type=str, help='output directory', default='./watermark_output')
-    # watermark params
-    parser.add_argument('--watermark', type=str, help='Wrap through |', default='DANPE')
-    parser.add_argument('--angle', type=int, help='', default=45)
-    parser.add_argument('--font_file', type=str, help='', default='arial.ttf')
-    parser.add_argument('--font_size', type=int, help='None for autoset', default=None)
-    parser.add_argument('--color', type=str, help='', default='black')
-    parser.add_argument('--alpha', type=float, help='', default=0.2)
-    parser.add_argument('--only_pdf', action='store_true', help='', default=False)
-    parser.add_argument('--no_date', action='store_true', help='the watermark with no date information', default=False)
-    # encrypt params
-    parser.add_argument('--pwd', type=str, help='owner password', default='123456')
-    parser.add_argument(
-        '--p',
-        type=int,
-        help='permission value, default(-4092) permit print only, -1 permit everything, -4096 deny anything',
-        default=-4092)
-    args = parser.parse_args()
+def add_watermark(input_file,
+                  out_dir,
+                  watermark='WATERMARK',
+                  angle=0,
+                  font_file=None,
+                  font_size=36,
+                  color=[0, 0, 0],
+                  alpha=0.2,
+                  only_pdf=False,
+                  with_date=True,
+                  owner_pwd='',
+                  p_value=-2044):
+    input_file = os.path.abspath(input_file)
+    out_dir = os.path.abspath(out_dir)
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
 
-    return args
-
-
-if __name__ == '__main__':
-    args = parse_args()
-    input_file = os.path.abspath(args.input_file)
-    output_dir = os.path.abspath(args.output_dir)
-    owner_pwd = args.pwd
-    if owner_pwd.lower() == 'random':
-        owner_pwd = uuid.uuid4().hex
-
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    wm_content = args.watermark
-    if not args.no_date:
+    wm_content = watermark
+    if with_date:
         date_str = time.strftime('%Y.%m.%d')
         wm_content += '|' + date_str
 
     input_file_list = []
     if os.path.isdir(input_file):
         listFiles(input_file, input_file_list, OFFICE_PDF_EXT, True)
-        watermark_dir = os.path.join(output_dir, '%s-wm-files' % os.path.basename(input_file))
-        pdf_dir = os.path.join(output_dir, '%s-pdf-files' % os.path.basename(input_file))
+        watermark_dir = os.path.join(out_dir, '%s-wm-files' % os.path.basename(input_file))
+        pdf_dir = os.path.join(out_dir, '%s-pdf-files' % os.path.basename(input_file))
     else:
         input_file_ext = os.path.splitext(os.path.basename(input_file))[1].lower()
         assert input_file_ext in OFFICE_PDF_EXT, 'Do not support %s file' % input_file_ext
         input_file_list = [input_file]
-        watermark_dir = os.path.join(output_dir, 'wm-files')
-        pdf_dir = os.path.join(output_dir, 'pdf-files')
+        watermark_dir = os.path.join(out_dir, 'wm-files')
+        pdf_dir = os.path.join(out_dir, 'pdf-files')
     wm_attrs = {
         'content': wm_content,
-        'out_dir': output_dir,
-        'angle': args.angle,
+        'out_dir': out_dir,
+        'angle': angle,
         'pagesize': None,
-        'font_file': args.font_file,
-        'font_size': args.font_size,
-        'color': args.color,
-        'alpha': args.alpha,
+        'font_file': font_file,
+        'font_size': font_size,
+        'color': color,
+        'alpha': alpha,
     }
 
     pdf_convert = PdfConvert()
@@ -344,23 +340,88 @@ if __name__ == '__main__':
             while left_try_times > 0:
                 try:
                     pdf_list = pdf_convert.run_convert(src_file, pdf_save_dir)
-                    if pdf_list is not None:
-                        print('Try to convert and result success!', left_try_times)
+                    if pdf_list is not None and len(pdf_list) > 0:
+                        if left_try_times != TRY_TIMES:
+                            print('Try to convert and result success!', left_try_times)
                         break
                 finally:
                     left_try_times -= 1
 
-        if not args.only_pdf and pdf_list is not None:
-            try:
-                for pdf_item in pdf_list:
-                    merge_watermark(pdf_item, watermark_save_dir, owner_pwd, args.p,
-                                    wm_attrs)  # add watermark, overwrite the pdf file
+        if pdf_list is not None:
+            if not only_pdf:
+                try:
+                    for pdf_item in pdf_list:
+                            tmp_wm_save_dir = watermark_save_dir
+                            if file_ext in ['.xls', '.xlsx']:
+                                sheets_save_dir = os.path.splitext(os.path.basename(src_file))[0]
+                                tmp_wm_save_dir = os.path.join(watermark_save_dir, sheets_save_dir)
+                                if not os.path.exists(tmp_wm_save_dir):
+                                    os.makedirs(tmp_wm_save_dir)
 
-            except Exception as e:
-                print('failed to add watermark %s' % src_file, e)
-                failure_list.append(src_file)
-                continue
+                            merge_watermark(pdf_item, tmp_wm_save_dir, owner_pwd, p_value,
+                                        wm_attrs)  # add watermark, overwrite the pdf file
+
+                except Exception as e:
+                    print('failed to add watermark %s' % src_file, e)
+                    failure_list.append(src_file)
+                    continue
+        else:
+            failure_list.append(src_file)
+
+    pdf_convert.close()
+    print('failure list:')
     for i, failure_file in enumerate(failure_list):
         print(i, failure_file)
-    # if not args.only_pdf:
+    # if not only_pdf:
     #     shutil.rmtree(pdf_dir)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('input_file', type=str, help='input docx or pdf file or directory')
+    parser.add_argument('--out_dir', type=str, help='output directory', default='./watermark_output')
+    # watermark params
+    parser.add_argument('--watermark', type=str, help='Wrap through |', default='WATERMARK')
+    parser.add_argument('--angle', type=int, help='', default=45)
+    parser.add_argument('--font_file', type=str, help='', default='arial.ttf')
+    parser.add_argument('--font_size', type=int, help='None for autoset', default=None)
+    parser.add_argument(
+        '--color', type=str, help='black, red, blue, green, yellow, white, gold, purple, pink, orange', default='black')
+    parser.add_argument('--alpha', type=float, help='', default=0.2)
+    parser.add_argument('--only_pdf', action='store_true', help='', default=False)
+    parser.add_argument('--no_date', action='store_true', help='the watermark with no date information', default=False)
+    # encrypt params
+    parser.add_argument('--pwd', type=str, help='owner password', default='ccb123456')
+    parser.add_argument(
+        '--p',
+        type=int,
+        help='permission value, default(-4092/-2044) permit print only, -1 permit everything, -4096 deny anything',
+        default=-2044)
+    args = parser.parse_args()
+
+    return args
+
+
+if __name__ == '__main__':
+    args = parse_args()
+    input_file = args.input_file
+    out_dir = args.out_dir
+    owner_pwd = args.pwd
+
+    if owner_pwd.lower() == 'random':
+        owner_pwd = uuid.uuid4().hex
+
+    wm_attrs = {
+        'watermark': args.watermark,
+        'angle': args.angle,
+        'font_file': args.font_file,
+        'font_size': args.font_size,
+        'color': args.color,
+        'alpha': args.alpha,
+        'only_pdf': args.only_pdf,
+        'with_date': not args.no_date,
+        'owner_pwd': owner_pwd,
+        'p_value': args.p,
+    }
+
+    add_watermark(input_file, out_dir, **wm_attrs)

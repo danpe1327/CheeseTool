@@ -8,7 +8,7 @@ pip install -r requirements.txt
 ```
 ### 2.部分python库说明
 
-- win32com，用于调用 word 等应用程序
+- comtypes，用于调用 word 等应用程序
 - reportlab，用于生成 pdf 水印文件
 
 ### 3.安装pdf工具包
@@ -69,16 +69,43 @@ python add_watermark.py input_file
                 bc[s] = r
             return r
     ```
+- win32 位系统下，出现 readerror
+    修改pypdf4 的generic.py
+    代码路径：\PyPDF4\的generic.py
+
+```    
+    if not pdf.strict:
+        warnings.warn(
+            "Illegal character in Name Object", PdfReadWarning
+        )
+        return NameObject(name)
+    else:    
+        raise PdfReadError("Illegal character in Name Object")
+修改为：
+    try:
+        if not pdf.strict:
+            warnings.warn(
+                "Illegal character in Name Object", PdfReadWarning
+            )
+            return NameObject(name)
+        else:
+            return NameObject(name.decode('gbk'))
+    except Exception as e:
+        raise PdfReadError("Illegal character in Name Object")
+```
+
 ### 6.pdf 权限
 - -1 permit everything
 - -4096 deny anything
-- -4092 only print
+- -4092 only print low resolution
+- -2044 only print high resolution
 
 ```
 0000 0000 0001 unknown
 0000 0000 0010 unknown
 0000 0000 0011 unknown
-0000 0000 0100 打印
+0000 0000 0100 打印(低分辨率)
+1000 0000 0100 打印(高分辨率)
 0000 0000 1000 更改文档、文档组合、填写表单域、签名、创建模板页面
 0000 0001 0000 内容复制、复制内容用于辅助工具
 0000 0010 0000 注释、填写表单域、签名
