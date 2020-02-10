@@ -12,7 +12,7 @@ from pypdf import PdfFileReader, PdfFileWriter
 import uuid
 
 TRY_TIMES = 3
-DEFAULT_FONT_SIZE_SCALE = 0.045
+DEFAULT_FONT_SIZE_SCALE = 0.04
 OFFICE_PDF_EXT = ['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.pdf']
 ORGIN_LIST = [
     (0.7, 0.7),
@@ -100,25 +100,33 @@ class PdfConvert(object):
 
             # save every sheet that is not empty
             for i in range(1, sheet_num + 1):
-                sheet_name = office_file.Sheets(i).Name
-                xls_sheet = office_file.Worksheets(sheet_name)
+                try:
+                    sheet_name = office_file.Sheets(i).Name
+                    xls_sheet = office_file.Worksheets(sheet_name)
+                    if xls_sheet.UsedRange.Rows.Count == 1 and xls_sheet.UsedRange.Columns.Count == 1:  # filter the empty sheet
+                        continue
 
-                if str(xls_sheet.UsedRange) == 'None':  # filter the empty sheet
+                    if xls_sheet.UsedRange.Columns.Count < 20:
+                        # set page params
+                        xls_sheet.PageSetup.Zoom = False
+                        xls_sheet.PageSetup.FitToPagesWide = 1
+                        xls_sheet.PageSetup.FitToPagesTall = False
+                    tmp_file = pdf_file.replace('.pdf', '_%s.pdf' % sheet_name)
+
+                    if os.path.exists(tmp_file):
+                        os.remove(tmp_file)
+                    xls_sheet.ExportAsFixedFormat(self.excelFormatPDF, tmp_file)
+                    out_list.append(tmp_file)
+                except Exception:
                     continue
-
-                tmp_file = pdf_file.replace('.pdf', '_%s.pdf' % sheet_name)
-
-                if os.path.exists(tmp_file):
-                    os.remove(tmp_file)
-                xls_sheet.ExportAsFixedFormat(self.excelFormatPDF, tmp_file)
-                out_list.append(tmp_file)
 
             office_file.Close()
         except Exception as e:
             print('failed to convert excel %s, %s' % (in_file, e))
             if out_list and len(out_list) > 0:
                 for f in out_list:
-                    os.remove(f)
+                    if os.path.exists(f):
+                        os.remove(f)
             out_list = None
             self.excelApp.DisplayAlerts = True
             self.excelApp.Quit()
@@ -237,7 +245,16 @@ def merge_watermark(pdf_file, save_dir, owner_pwd, p_value, wm_attrs):
 
     if owner_pwd.lower() not in ['-1', 'no', 'none', 'null']:
         pdf_writer.encrypt('', ownerPwd=owner_pwd, P=p_value)
-        with open(os.path.join(wm_attrs['out_dir'], '..', 'permission_key'), 'a', encoding='utf-8') as f_log:
+        key_file = os.path.join(wm_attrs['out_dir'], '..', 'permission_key')
+        old_keys = None
+        if os.path.exists(key_file):
+            old_key_file = open(key_file, 'r', encoding='utf-8')
+            old_keys = old_key_file.readlines()
+            old_key_file.close()
+
+        with open(key_file, 'w', encoding='utf-8') as f_log:
+            if old_keys is not None:
+                f_log.writelines(old_keys[-1000:])
             f_log.write('%s %s %s\n' % (time.strftime('%Y-%m-%d %H:%M:%S'), os.path.relpath(out_file), owner_pwd))
 
     pdf_writer.write()
@@ -266,7 +283,7 @@ def add_watermark(input_file,
                   watermark='WATERMARK',
                   angle=0,
                   font_file=None,
-                  font_size=36,
+                  font_size=None,
                   color=[0, 0, 0],
                   alpha=0.2,
                   only_pdf=False,
@@ -351,14 +368,14 @@ def add_watermark(input_file,
             if not only_pdf:
                 try:
                     for pdf_item in pdf_list:
-                            tmp_wm_save_dir = watermark_save_dir
-                            if file_ext in ['.xls', '.xlsx']:
-                                sheets_save_dir = os.path.splitext(os.path.basename(src_file))[0]
-                                tmp_wm_save_dir = os.path.join(watermark_save_dir, sheets_save_dir)
-                                if not os.path.exists(tmp_wm_save_dir):
-                                    os.makedirs(tmp_wm_save_dir)
+                        tmp_wm_save_dir = watermark_save_dir
+                        if file_ext in ['.xls', '.xlsx']:
+                            sheets_save_dir = os.path.splitext(os.path.basename(src_file))[0]
+                            tmp_wm_save_dir = os.path.join(watermark_save_dir, sheets_save_dir)
+                            if not os.path.exists(tmp_wm_save_dir):
+                                os.makedirs(tmp_wm_save_dir)
 
-                            merge_watermark(pdf_item, tmp_wm_save_dir, owner_pwd, p_value,
+                        merge_watermark(pdf_item, tmp_wm_save_dir, owner_pwd, p_value,
                                         wm_attrs)  # add watermark, overwrite the pdf file
 
                 except Exception as e:
