@@ -2,6 +2,10 @@
 
 项目地址：https://github.com/danpe1327/CheeseTool/tree/master/watermark
 
+### 更新
+
+- 20200310 更新 README，对于中文显示为方块的问题，需使用宋体(simsun.ttc)、黑体(simhei.ttf)等字体。
+
 ### 1.依赖库
 ```
 pip install -r requirements.txt
@@ -34,7 +38,7 @@ python add_watermark.py input_file
             input_file 输入单一文件或文件夹路径，目前支持 word， excel， powerpoint 的新旧 6 种格式与 pdf 格式
            --watermark 水印文本，通过符号 ‘|’ 换行
            --angle 水印文本方向
-           --font_file 可自定义字体文件，若无输入或字体文件不存在，则使用默认的字体
+           --font_file 可自定义字体文件，若无输入或字体文件不存在，则使用默认的字体。对于中文无法显示的问题，需要使用包含中文的字体，如宋体(simsun.ttc)、黑体(simhei.ttf)等。
            --font_size 字体大小
            --color 水印颜色，可选常见的颜色，如 [black, red, blue, green, yellow, white, gold, purple, pink, orange] 等
            --alpha 字体透明度
