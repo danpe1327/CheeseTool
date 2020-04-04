@@ -1,4 +1,4 @@
-﻿Pillow==6.2.0
+﻿Pillow>=6.2.2
 reportlab==3.5.26
 tqdm==4.36.1
 PyMuPDF==1.16.2
